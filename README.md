@@ -1,18 +1,13 @@
-# network-telemetry-sensor
+# FlowVault-eBPF - network-telemetry-sensor
 Real-time, observer-contamination-free network packet streaming.
-Here is a highly professional, technically precise, and engaging rewrite of your `README.md` introduction.
 
-This version speaks directly to the pain points of network security researchers and clearly positions your project as the elegant, low-cost solution they’ve been looking for.
+# FlowVault-eBPF - High-Fidelity Distributed Network Telemetry for AI Research
 
----
+Most machine AI-driven Intrusion Detection Systems (IDS) are trained on synthetic, low-resolution, or out-of-context datasets. Generating high-quality, real-time network data for AI research has traditionally been blocked by three systemic hurdles:
 
-# FlowVault-eBPF: High-Fidelity Distributed Network Telemetry for ML Research
-
-Most machine learning-driven Intrusion Detection Systems (IDS) are trained on synthetic, low-resolution, or out-of-context datasets. Generating high-quality, real-time network data for AI research has traditionally been blocked by three systemic hurdles:
-
-1. **The Physical TAP Bottleneck:** High-fidelity data collection usually relies on expensive physical network TAPs, which are cost-prohibitive and highly restrictive to deploy across distributed edge or enterprise environments.
-2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline forensic analysis. They lack the real-time streaming capabilities required to feed active, online machine learning inference engines.
-3. **The Data Resolution Crisis:** Traditional user-space interface-based packet capture (like standard `libpcap`) suffers from packet drops under load and poor timestamp resolution, leading to degraded feature quality for ML models.
+1. **The Physical TAP Bottleneck:** High-fidelity data collection usually relies on expensive physical network TAPs which are highly restrictive to deploy across distributed edge environments.
+2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline forensic analysis. They lack the real-time streaming capabilities required to feed active, online AI inference engines.
+3. **The Data Resolution Crisis:** Traditional interface-based packet capture (like standard `libpcap`) suffers from packet drops under load and poor timestamp resolution, leading to degraded feature quality for AI models.
 
 **FlowVault-eBPF** breaks these barriers. It is a lightweight, production-grade, distributed data engineering pipeline designed to capture, structure, and stream raw network telemetry with zero-copy efficiency.
 
@@ -31,7 +26,7 @@ By combining the power of Linux **eBPF (Extended Berkeley Packet Filter)** at th
 
 ## 🛠️ Key Features
 
-* **Data Leakage & Contamination Prevention:** Built-in kernel-level filters dynamically drop the monitoring Pi's own management and telemetry traffic. This ensures your ML models are trained exclusively on clean network traffic, completely eliminating **Observer Contamination**.
+* **Data Leakage & Contamination Prevention:** Built-in kernel-level filters dynamically drop the monitoring Pi's own management and telemetry traffic. This ensures your AI models are trained exclusively on clean network traffic, completely eliminating **Observer Contamination**.
 * **Zero-Copy Memory Management:** The streaming agent leverages Python `memoryview` buffers to prevent expensive CPU-bound data copying when handling raw network frames.
 * **Resilient TCP Streaming:** Features auto-reconnecting socket-based streaming from the edge sensor to the central storage vault, guaranteeing packet delivery even during temporary network interruptions.
 
@@ -51,7 +46,6 @@ flowvault-ebpf/
 │
 └── router-t140/            # Deployment directory for the centralized collection node
     └── vault_router.py     # High-throughput PCAP writer and Kafka producer
-
 ```
 
 ---
