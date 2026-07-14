@@ -1,0 +1,8 @@
+FlowVault-eBPF
+Copyright 2026 Rafael Garcia Navarro
+
+This product includes software developed by Rafael Garcia Navarro 
+(https://github.com/rafagana).
+
+This product utilizes the Linux BCC (BPF Compiler Collection) framework 
+and pyroute2 libraries.
