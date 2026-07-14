@@ -1,80 +1,216 @@
 # FlowVault-eBPF - network-telemetry-sensor
-Real-time, observer-contamination-free network packet streaming.
-
-# FlowVault-eBPF - High-Fidelity Distributed Network Telemetry for AI Research
-
-Most machine AI-driven Intrusion Detection Systems (IDS) are trained on synthetic, low-resolution, or out-of-context datasets. Generating high-quality, real-time network data for AI research has traditionally been blocked by three systemic hurdles:
-
-1. **The Physical TAP Bottleneck:** High-fidelity data collection usually relies on expensive physical network TAPs which are highly restrictive to deploy across distributed edge environments.
-2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline forensic analysis. They lack the real-time streaming capabilities required to feed active, online AI inference engines.
-3. **The Data Resolution Crisis:** Traditional interface-based packet capture (like standard `libpcap`) suffers from packet drops under load and poor timestamp resolution, leading to degraded feature quality for AI models.
-
-**FlowVault-eBPF** breaks these barriers. It is a lightweight, production-grade, distributed data engineering pipeline designed to capture, structure, and stream raw network telemetry with zero-copy efficiency.
 
 ---
 
-## 🚀 The Architecture
+# FlowVault-eBPF: High-Fidelity Distributed Network Telemetry for ML Research
 
-By combining the power of Linux **eBPF (Extended Berkeley Packet Filter)** at the kernel layer with low-cost edge hardware, this pipeline achieves enterprise-grade data fidelity without the enterprise price tag.
+Many machine learning-driven Intrusion Detection Systems (IDS) fail in real-world deployments because they are trained on low-resolution, synthetic, or out-of-context datasets. Obtaining clean, real-time, high-fidelity packet telemetry has historically been blocked by three major roadblocks:
 
-* **Low-Cost, High-Fidelity Edge Capture:** Deployed on a budget-friendly **Raspberry Pi 4** connected to a centralized switch's **SPAN/Port Mirror**. This positioning guarantees complete visibility, capturing 100% of both **North/South** (perimeter) and **East/West** (lateral) network traffic.
-* **Kernel-Level eBPF TC Tap:** Captures packets directly at the Traffic Control (TC) ingress layer using an eBPF program. This bypasses the heavy overhead of the user-space network stack, recording raw frames with nanosecond-precision kernel timestamps (`bpf_ktime_get_ns()`).
-* **Real-Time & Durable Dual-Path Pipeline:** * **The Real-Time Path (Kafka):** Raw packet data and metadata headers are streamed instantly to an Apache Kafka bus for real-time ML model consumption and inference.
-* **The Ground-Truth Path (PCAP):** Concurrently, the pipeline writes microsecond-accurate, rotated PCAP files directly to local storage as an immutable, durable source of truth for offline training and validation.
+1. **The Physical TAP Bottleneck:** High-fidelity data collection traditionally relies on expensive, physical hardware TAPs. This is cost-prohibitive and highly restrictive to deploy across distributed edge, IoT, or enterprise environments.
+2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline, forensic analysis. They lack the real-time streaming interfaces required to feed active, online machine learning inference engines.
+3. **The Data Resolution Crisis:** Standard user-space interface-based packet capture (such as raw `libpcap`) suffers from severe packet drops under high throughput and poor timestamp resolution, leading to degraded feature quality for ML models.
 
----
-
-## 🛠️ Key Features
-
-* **Data Leakage & Contamination Prevention:** Built-in kernel-level filters dynamically drop the monitoring Pi's own management and telemetry traffic. This ensures your AI models are trained exclusively on clean network traffic, completely eliminating **Observer Contamination**.
-* **Zero-Copy Memory Management:** The streaming agent leverages Python `memoryview` buffers to prevent expensive CPU-bound data copying when handling raw network frames.
-* **Resilient TCP Streaming:** Features auto-reconnecting socket-based streaming from the edge sensor to the central storage vault, guaranteeing packet delivery even during temporary network interruptions.
+**FlowVault-eBPF** is a lightweight, production-grade, distributed data engineering pipeline that resolves these issues. By leveraging kernel-space **eBPF (Extended Berkeley Packet Filter)** at the Traffic Control (TC) layer and low-cost hardware, it captures, structures, and streams raw network telemetry with zero-copy efficiency.
 
 ---
 
-## 📁 Repository Structure
+## 🚀 Architectural Overview
 
-```text
-flowvault-ebpf/
-├── LICENSE                 # Apache 2.0 License
-├── NOTICE                  # Attribution notice
-├── docker-compose.yml      # Local Kafka & Zookeeper environment for quick deployment
-├── requirements.txt        # Global Python dependencies
-│
-├── sensor-pi/              # Deployment directory for the Raspberry Pi 4 capture node
-│   └── pi_ebpf_streamer.py # eBPF TC engine and socket streamer
-│
-└── router-t140/            # Deployment directory for the centralized collection node
-    └── vault_router.py     # High-throughput PCAP writer and Kafka producer
 ```
+                                              [ SWITCH SPAN / PORT MIRROR ]
+                                                            │
+                                             (Inbound & Outbound Traffic)
+                                                            │
+                                                            ▼
+                                             ┌─────────────────────────────┐
+                                             │  Raspberry Pi 4 Edge Node   │
+                                             │                             │
+                                             │   Kernel Space (eBPF)       │
+                                             │   ┌─────────────────────┐   │
+  [ Edge Management / SSH ] ─────────────────┼───►  IP Filter Hook     │   │  <-- Dynamically discards Pi's
+  (Observer Contamination Dropped)           │   └──────────┬──────────┘   │      own control telemetry!
+                                             │              │              │
+                                             │              ▼ (Raw Frames) │
+                                             │   ┌─────────────────────┐   │
+                                             │   │ skb_events Ringbuf  │   │  <-- Nanosecond monotonic timestamps
+                                             │   └──────────┬──────────┘   │
+                                             │              │              │
+                                             │   User Space │ (ctypes)     │
+                                             │   ┌──────────▼──────────┐   │
+                                             │   │   socket_streamer   │   │  <-- Double-buffered network sender
+                                             │   └──────────┬──────────┘   │
+                                             └──────────────┼──────────────┘
+                                                            │  TCP Stream (Port 9999)
+                                                            ▼
+                                             ┌─────────────────────────────┐
+                                             │  Centralized Vault (T160)   │
+                                             │                             │
+                                             │   ┌─────────────────────┐   │
+                                             │   │    vault_router     │   │  <-- Zero-copy memoryview socket reader
+                                             │   └──────┬──────────┬───┘   │
+                                             │          │          │       │
+                                             └──────────┼──────────┼───────┘
+                        (Parallel Storage Paths)        │          │
+                                   ┌────────────────────┘          └────────────────────┐
+                                   ▼                                                    ▼
+                       ┌──────────────────────┐                             ┌──────────────────────┐
+                       │  Durable PCAP Files  │                             │  Real-Time Kafka Bus │
+                       │  - Rotate at 100MB   │                             │  - Custom Headers    │
+                       │  - Microsecond Epoch │                             │  - Low Latency       │
+                       └──────────────────────┘                             └──────────────────────┘
+                         [ ML Training/Truth ]                                [ ML Live Inference ]
+
+```
+
+### 1. Low-Cost, Complete Visibility
+
+The capture node is designed to run on a budget-friendly **Raspberry Pi 4** connected directly to a centralized switch's **SPAN/Port Mirror**. This hardware positioning guarantees complete, uncompromised visibility, capturing 100% of both **North/South** (perimeter) and **East/West** (lateral) network traffic passing through the switch.
+
+### 2. Zero-Copy Kernel-Space Capture
+
+Instead of pulling packets into user-space via standard sockets (which incurs multiple memory copies and CPU context switches), FlowVault-eBPF loads a specialized Traffic Control (TC) program (`physical_tc_tap`) directly into the Linux kernel network pipeline. It extracts the raw Ethernet frame up to a defined MTU (`SNAPLEN = 1522` to accommodate 802.1Q tags) and forwards it directly to a ring buffer with nanosecond precision.
+
+### 3. QinQ & VLAN Resolution
+
+The eBPF kernel program implements a robust Ethernet protocol parser. It handles nested VLAN configurations (double-tagging / QinQ) up to two layers deep, ensuring that inner IPv4 headers are successfully parsed even in heavily segmented enterprise environments.
+
+### 4. Dual-Path Storage Engine
+
+Once the centralized **Vault** receive thread processes the streams, it forks the data into two paths:
+
+* **The Ground-Truth Path (PCAP):** Writes microsecond-accurate, binary-compliant PCAP files directly to local storage, automatically rotating files when they reach `MAX_PCAP_SIZE` (100MB). This serves as the immutable dataset for offline ML model training and validation.
+* **The Real-Time Path (Kafka):** Concurrently publishes raw packet payloads directly to an Apache Kafka broker. Key telemetry metadata (such as nanosecond epoch timestamps, original packet lengths, and capture lengths) is injected directly into **Kafka Message Headers**, allowing real-time downstream ML inference engines to process packet meta without having to parse the raw byte payload.
+
+---
+
+## 🛡️ Dataset Integrity & Observer Contamination Prevention
+
+In machine learning research, **Observer Contamination** is a silent killer. If your monitoring sensor streams its own capture telemetry or SSH management traffic over the same network interface it is monitoring, your ML models will inevitably train on the sensor's own activity. This leads to artificial model bias and false performance metrics.
+
+FlowVault-eBPF solves this at the **kernel level**. The streamer program dynamically extracts the system’s IP address (`PI_MGMT_IP`) and compiles a hardware-native 32-bit big-endian C literal representing that IP (`PI_MGMT_IP_C_LITERAL`):
+
+```c
+if (ip->saddr == bpf_htonl(0xC0A80A1FU) || ip->daddr == bpf_htonl(0xC0A80A1FU)) {
+    return TC_ACT_OK;
+}
+
+```
+
+*(Example literal generated dynamically from `192.168.10.31`)*
+
+If the incoming packet's source or destination IP matches this management signature, the eBPF filter skips submitting it to the user-space ring buffer, completely dropping it from the telemetry output.
+
+---
+
+## ⚙️ Pre-Flight Configuration
+
+Before executing the pipeline, you **must** adjust several environment-specific variables located at the top of the scripts:
+
+### 1. Configure the Central Vault Receiver (`router-t140/vault_router.py`)
+
+Ensure these parameters match your target storage layout and local network:
+
+* `BIND_IP = "0.0.0.0"` — IP address to bind the listening socket to.
+* `BIND_PORT = 9999` — TCP port to accept incoming stream traffic.
+* `PCAP_DIR = "/your/custom/storage/path/pcap"` — Directory where rotated PCAP files will be written.
+* `KAFKA_BROKER = "127.0.0.1:9092"` — Address of your active Apache Kafka broker.
+* `MAX_PCAP_SIZE = 100 * 1024 * 1024` — PCAP rollover threshold (default: 100MB).
+
+### 2. Configure the Edge Sensor (`sensor-pi/pi_ebpf_streamer.py`)
+
+Modify these variables to establish link connectivity and preserve data integrity:
+
+* `VAULT_IP = "192.168.10.137"` — The IP address of your centralized Vault server.
+* `CAPTURE_INTERFACE = "eth1"` — The physical interface connected to the switch's SPAN/mirror port (e.g., `eth1`).
+* `PI_MGMT_IP = "192.168.10.31"` — The IP address used by the Pi for control and SSH. This is used for kernel-level filtering.
+* `PERF_PAGE_CNT = 8192` — Ring buffer size in memory pages. Increase this if you experience packet drops from the kernel ring buffer during burst traffic.
+
+---
+
+## 📁 Protocol Framing Format
+
+Between the edge sensor and the centralized vault receiver, data is transmitted over raw TCP sockets. To minimize transmission overhead, a custom **24-byte binary frame header** is prepended to every packet payload:
+
+```
+ 0                   1                   2                   3
+ 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Capture Length (uint32)                       |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                 Original Length (uint32)                      |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                    Wall-Clock Epoch (uint64)                  +
+|                          (Nanoseconds)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
++                    Kernel Monotonic (uint64)                  +
+|                          (Nanoseconds)                        |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+|                                                               |
+|                        Raw Frame Bytes                        |
+|                     (Size = Capture Length)                   |
+|                                                               |
++-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+```
+
+*(Structured mapping: `FRAME_HEADER_STRUCT = struct.Struct(">IIQQ")`)*
 
 ---
 
 ## ⚡ Quickstart
 
-### 1. Spin up the centralized infrastructure
+### Step 1: Install System Dependencies
 
-On your central server (e.g., your T160 vault), start your Kafka broker:
+On the **Edge Sensor Node** (Raspberry Pi 4), install the required kernel libraries and eBPF dependencies:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y bpfcc-tools linux-headers-$(uname -r) python3-bpfcc python3-pyroute2
+
+```
+
+On the **Centralized Vault Node** (Server), install the Python Kafka client:
+
+```bash
+pip install confluent-kafka
+
+```
+
+### Step 2: Spin Up the Kafka Broker
+
+On your central server, run the provided Docker Compose environment:
 
 ```bash
 docker-compose up -d
 
 ```
 
-### 2. Launch the Central Vault Receiver
+This launches a local Zookeeper container alongside a Confluent-Kafka container configured to bind directly to the host's networking stack on port `9092`.
 
-Start the vault router to listen for incoming sensor streams, write PCAPs, and produce to Kafka:
+### Step 3: Start the Central Vault Receiver
+
+Initialize the vault receiver on your central server. It will start listening on port `9999` and pre-allocate the PCAP storage space:
 
 ```bash
 python3 router-t140/vault_router.py
 
 ```
 
-### 3. Deploy the eBPF Streamer on the Raspberry Pi 4
+### Step 4: Run the eBPF Streamer on the Edge Sensor
 
-With your Pi hooked up to your switch's SPAN port, run the kernel tap (requires root privileges to load the eBPF program into the kernel):
+Once the central vault is listening, execute the streamer on your Raspberry Pi 4. Because this loader interacts directly with the Linux kernel's TC subsystem, it **must** be executed with root privileges:
 
 ```bash
 sudo python3 sensor-pi/pi_ebpf_streamer.py
 
 ```
+
+The streamer will automatically hook into your defined `CAPTURE_INTERFACE`, establish a connection to your Vault node, filter out management traffic, and start streaming raw packet frames.
+
+---
+
+## 📄 License & Attribution
+
+This project is licensed under the **Apache License 2.0**. For complete legal rights, permissions, and conditions, refer to the `LICENSE` and `NOTICE` files included in the root of this repository.
