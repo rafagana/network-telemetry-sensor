@@ -2,13 +2,13 @@
 
 ---
 
-# FlowVault-eBPF: High-Fidelity Distributed Network Telemetry for ML Research
+# FlowVault-eBPF: High-Fidelity Distributed Network Telemetry for AI Research
 
-Many machine learning-driven Intrusion Detection Systems (IDS) fail in real-world deployments because they are trained on low-resolution, synthetic, or out-of-context datasets. Obtaining clean, real-time, high-fidelity packet telemetry has historically been blocked by three major roadblocks:
+Many AI-driven Intrusion Detection Systems (IDS) fail in real-world deployments because they are trained on low-resolution, synthetic, or out-of-context datasets. Obtaining clean, real-time, high-fidelity packet telemetry has historically been blocked by three major roadblocks:
 
 1. **The Physical TAP Bottleneck:** High-fidelity data collection traditionally relies on expensive, physical hardware TAPs. This is cost-prohibitive and highly restrictive to deploy across distributed edge, IoT, or enterprise environments.
-2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline, forensic analysis. They lack the real-time streaming interfaces required to feed active, online machine learning inference engines.
-3. **The Data Resolution Crisis:** Standard user-space interface-based packet capture (such as raw `libpcap`) suffers from severe packet drops under high throughput and poor timestamp resolution, leading to degraded feature quality for ML models.
+2. **The Batch-Processing Lag:** Traditional PCAP capture tools are designed for offline, forensic analysis. They lack the real-time streaming interfaces required to feed active, online AI inference engines.
+3. **The Data Resolution Crisis:** Standard user-space interface-based packet capture (such as raw `libpcap`) suffers from severe packet drops under high throughput and poor timestamp resolution, leading to degraded feature quality for AI models.
 
 **FlowVault-eBPF** is a lightweight, production-grade, distributed data engineering pipeline that resolves these issues. By leveraging kernel-space **eBPF (Extended Berkeley Packet Filter)** at the Traffic Control (TC) layer and low-cost hardware, it captures, structures, and streams raw network telemetry with zero-copy efficiency.
 
@@ -58,7 +58,7 @@ Many machine learning-driven Intrusion Detection Systems (IDS) fail in real-worl
                        │  - Rotate at 100MB   │                             │  - Custom Headers    │
                        │  - Microsecond Epoch │                             │  - Low Latency       │
                        └──────────────────────┘                             └──────────────────────┘
-                         [ ML Training/Truth ]                                [ ML Live Inference ]
+                         [ AI Training/Truth ]                                [ AI Live Inference ]
 
 ```
 
@@ -78,14 +78,14 @@ The eBPF kernel program implements a robust Ethernet protocol parser. It handles
 
 Once the centralized **Vault** receive thread processes the streams, it forks the data into two paths:
 
-* **The Ground-Truth Path (PCAP):** Writes microsecond-accurate, binary-compliant PCAP files directly to local storage, automatically rotating files when they reach `MAX_PCAP_SIZE` (100MB). This serves as the immutable dataset for offline ML model training and validation.
-* **The Real-Time Path (Kafka):** Concurrently publishes raw packet payloads directly to an Apache Kafka broker. Key telemetry metadata (such as nanosecond epoch timestamps, original packet lengths, and capture lengths) is injected directly into **Kafka Message Headers**, allowing real-time downstream ML inference engines to process packet meta without having to parse the raw byte payload.
+* **The Ground-Truth Path (PCAP):** Writes microsecond-accurate, binary-compliant PCAP files directly to local storage, automatically rotating files when they reach `MAX_PCAP_SIZE` (100MB). This serves as the immutable dataset for offline AI model training and validation.
+* **The Real-Time Path (Kafka):** Concurrently publishes raw packet payloads directly to an Apache Kafka broker. Key telemetry metadata (such as nanosecond epoch timestamps, original packet lengths, and capture lengths) is injected directly into **Kafka Message Headers**, allowing real-time downstream AI inference engines to process packet meta without having to parse the raw byte payload.
 
 ---
 
 ## 🛡️ Dataset Integrity & Observer Contamination Prevention
 
-In machine learning research, **Observer Contamination** is a silent killer. If your monitoring sensor streams its own capture telemetry or SSH management traffic over the same network interface it is monitoring, your ML models will inevitably train on the sensor's own activity. This leads to artificial model bias and false performance metrics.
+In AI research, **Observer Contamination** is a silent killer. If your monitoring sensor streams its own capture telemetry or SSH management traffic over the same network interface it is monitoring, your AI models will inevitably train on the sensor's own activity. This leads to artificial model bias and false performance metrics.
 
 FlowVault-eBPF solves this at the **kernel level**. The streamer program dynamically extracts the system’s IP address (`PI_MGMT_IP`) and compiles a hardware-native 32-bit big-endian C literal representing that IP (`PI_MGMT_IP_C_LITERAL`):
 
@@ -194,7 +194,7 @@ This launches a local Zookeeper container alongside a Confluent-Kafka container 
 Initialize the vault receiver on your central server. It will start listening on port `9999` and pre-allocate the PCAP storage space:
 
 ```bash
-python3 router-t140/vault_router.py
+python3 vault_router.py
 
 ```
 
@@ -203,7 +203,7 @@ python3 router-t140/vault_router.py
 Once the central vault is listening, execute the streamer on your Raspberry Pi 4. Because this loader interacts directly with the Linux kernel's TC subsystem, it **must** be executed with root privileges:
 
 ```bash
-sudo python3 sensor-pi/pi_ebpf_streamer.py
+sudo python3 pi_ebpf_streamer.py
 
 ```
 
