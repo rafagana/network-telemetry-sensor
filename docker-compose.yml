@@ -1,0 +1,26 @@
+
+services:
+  ebpf-zookeeper-1:
+    image: zookeeper:3.9.2
+    container_name: ebpf-zookeeper-1
+    network_mode: "host"
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_ADMINSERVER_ENABLED: "false"
+    restart: always
+
+  ebpf-kafka-1:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: ebpf-kafka-1
+    network_mode: "host"
+    depends_on:
+      - ebpf-zookeeper-1
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: "127.0.0.1:2181"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://192.168.10.137:9092"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_NUM_PARTITIONS: 3
+      KAFKA_LOG_RETENTION_HOURS: 24
+    restart: always
