@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pcap
+*.pcapng
+*.log
+pcap/
+frames/
+.env
+.venv/
+venv/
+.DS_Store

@@ -1,0 +1,12 @@
+{
+  "seq": 123456,
+  "direction": "ingress",
+  "cap_len": 512,
+  "orig_len": 1514,
+  "wall_ts_ns": 1720000000000000000,
+  "kernel_ts_ns": 123456789000000,
+  "capture_mode": "degraded",
+  "capture_snaplen": 512,
+  "sample_rate": 1,
+  "payload_b64": "optional_base64_payload_when_enabled"
+}

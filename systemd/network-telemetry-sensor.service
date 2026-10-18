@@ -1,0 +1,16 @@
+[Unit]
+Description=Network Telemetry eBPF Sensor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/network-telemetry-sensor
+ExecStart=/usr/bin/python3 /opt/network-telemetry-sensor/sensor/pi_ebpf_streamer_v5.4.py
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target

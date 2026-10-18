@@ -1,0 +1,16 @@
+[Unit]
+Description=Network Telemetry Vault Receiver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/network-telemetry-sensor
+ExecStart=/usr/bin/python3 /opt/network-telemetry-sensor/vault/vault_router_v5.5.py --host 0.0.0.0 --port 9999 --timeout 60 --rcvbuf 64M --output /var/lib/network-telemetry/pcap --pcap-prefix sensor
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
